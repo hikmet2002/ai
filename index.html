@@ -108,7 +108,7 @@
       output.scrollTop = output.scrollHeight;
     }
 
-    // Голосовое распознавание через Web Speech API с обработкой ошибки not-allowed
+    // Голосовое распознавание через Web Speech API с упрощённой обработкой ошибки not-allowed
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
     if (SpeechRecognition) {
@@ -125,7 +125,7 @@
 
       recognition.onerror = function(event) {
         if (event.error === 'not-allowed' || event.error === 'NotAllowedError') {
-          appendOutput("Доступ к микрофону запрещён. Пожалуйста, разрешите использование микрофона и убедитесь, что страница загружается через HTTPS.");
+          appendOutput("Доступ к микрофону запрещён. Пожалуйста, разрешите использование микрофона.");
           document.getElementById('status').textContent = "Микрофон не разрешён";
           document.getElementById('status').style.color = "red";
         } else {
@@ -193,3 +193,4 @@
   </script>
 </body>
 </html>
+
