@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Голосовой Помощник</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .top-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .top-panel h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+    .top-panel button {
+      padding: 8px 12px;
+      margin-left: 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #micCanvas {
+      display: block;
+      margin: 20px auto;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+    #output {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 250px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      background: #fafafa;
+      margin-bottom: 10px;
+    }
+    #status {
+      font-size: 14px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Верхняя панель: заголовок и кнопки -->
+    <div class="top-panel">
+      <h1>Голосовой ассистент</h1>
+      <div>
+        <button id="addCommandBtn">Добавить команду</button>
+        <button id="chatBtn">Chat с AI</button>
+      </div>
+    </div>
+    <!-- Canvas для анимации микрофона -->
+    <canvas id="micCanvas" width="150" height="150"></canvas>
+    <!-- Область вывода сообщений и списка команд -->
+    <div id="output">
+      <p>Доступные команды:</p>
+    </div>
+    <!-- Индикатор статуса -->
+    <div id="status">Прослушивание...</div>
+  </div>
+
+  <script>
+    // Список команд
+    const commandsList = [];
+
+    // Функция обновления списка команд в области вывода
+    function updateCommandsDisplay() {
+      const output = document.getElementById('output');
+      output.innerHTML = "<p>Доступные команды:</p>";
+      commandsList.forEach(cmd => {
+        output.innerHTML += `<p>- ${cmd.name}<br>`;
+        if(cmd.link) output.innerHTML += `Ссылка: ${cmd.link}<br>`;
+        if(cmd.file_path) output.innerHTML += `Файл: ${cmd.file_path}<br>`;
+        output.innerHTML += `</p>`;
+      });
+    }
+
+    // Функция добавления команды через диалоговые окна
+    document.getElementById('addCommandBtn').addEventListener('click', function() {
+      const name = prompt("Введите название команды:");
+      if (!name) return;
+      const link = prompt("Введите ссылку (оставьте пустым, если не нужно):");
+      const file_path = prompt("Введите расположение файла (оставьте пустым, если не нужно):");
+      commandsList.push({ name, link, file_path });
+      updateCommandsDisplay();
+    });
+
+    // Обработка кнопки "Chat с AI"
+    document.getElementById('chatBtn').addEventListener('click', function() {
+      appendOutput("Открываю ChatGPT-4o-mini...");
+      // Здесь можно добавить логику для интеграции с AI-сервисом
+    });
+
+    // Функция для добавления сообщений в область вывода
+    function appendOutput(text) {
+      const output = document.getElementById('output');
+      output.innerHTML += `<p>${text}</p>`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    // Голосовое распознавание через Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        appendOutput("Вы: " + transcript);
+        handleCommand(transcript.toLowerCase());
+      };
+
+      recognition.onerror = function(event) {
+        appendOutput("[Ошибка распознавания]: " + event.error);
+        document.getElementById('status').textContent = "Ошибка";
+        document.getElementById('status').style.color = "red";
+      };
+
+      recognition.onend = function() {
+        // Перезапуск распознавания
+        recognition.start();
+      };
+
+      recognition.start();
+    } else {
+      appendOutput("Ваш браузер не поддерживает голосовое распознавание.");
+      document.getElementById('status').textContent = "Голосовое распознавание не поддерживается";
+      document.getElementById('status').style.color = "red";
+    }
+
+    // Обработка распознанной команды
+    function handleCommand(text) {
+      let found = false;
+      for (let cmd of commandsList) {
+        if (text === cmd.name.toLowerCase()) {
+          if (cmd.link) {
+            window.open(cmd.link, '_blank');
+            appendOutput("Открываю " + cmd.name + "...");
+          } else if (cmd.file_path) {
+            appendOutput("Попытка открыть файл: " + cmd.file_path + ". Эта операция не поддерживается в браузере.");
+          } else {
+            appendOutput("Команда '" + text + "' не имеет действия.");
+          }
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        appendOutput("Команда '" + text + "' не найдена.");
+      }
+    }
+
+    // Анимация пульсирующего микрофона на canvas
+    const canvas = document.getElementById('micCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const baseRadius = 30;
+    const amplitude = 10;
+    let micAnimationCounter = 0;
+
+    function animateMic() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scale = (Math.sin(micAnimationCounter) + 1) / 2;
+      const currentRadius = baseRadius + amplitude * scale;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, currentRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = "red";
+      ctx.fill();
+      micAnimationCounter += 0.1;
+      requestAnimationFrame(animateMic);
+    }
+    animateMic();
+  </script>
+</body>
+</html>
