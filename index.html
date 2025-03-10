@@ -79,8 +79,8 @@
       output.innerHTML = "<p>Доступные команды:</p>";
       commandsList.forEach(cmd => {
         output.innerHTML += `<p>- ${cmd.name}<br>`;
-        if(cmd.link) output.innerHTML += `Ссылка: ${cmd.link}<br>`;
-        if(cmd.file_path) output.innerHTML += `Файл: ${cmd.file_path}<br>`;
+        if (cmd.link) output.innerHTML += `Ссылка: ${cmd.link}<br>`;
+        if (cmd.file_path) output.innerHTML += `Файл: ${cmd.file_path}<br>`;
         output.innerHTML += `</p>`;
       });
     }
@@ -125,7 +125,7 @@
 
       recognition.onerror = function(event) {
         if (event.error === 'not-allowed' || event.error === 'NotAllowedError') {
-          appendOutput("Доступ к микрофону запрещён. Пожалуйста, разрешите использование микрофона и убедитесь, что страница загружается через HTTPS или на localhost.");
+          appendOutput("Доступ к микрофону запрещён. Пожалуйста, разрешите использование микрофона и убедитесь, что страница загружается через HTTPS.");
           document.getElementById('status').textContent = "Микрофон не разрешён";
           document.getElementById('status').style.color = "red";
         } else {
