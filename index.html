@@ -1,48 +1,276 @@
-let recognition;
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <!-- Для мобильных устройств -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Голосовой ассистент</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      background: #fff;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .top-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .top-panel h1 {
+      font-size: 20px;
+      margin: 0 0 10px 0;
+      flex: 1 1 100%;
+    }
+    .top-panel button {
+      padding: 8px 12px;
+      margin: 5px 5px 0 0;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #micCanvas {
+      display: block;
+      margin: 20px auto;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+    #output {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      background: #fafafa;
+      margin-bottom: 10px;
+    }
+    #status {
+      font-size: 14px;
+      color: green;
+      margin-bottom: 10px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 5px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-panel">
+      <h1>Голосовой ассистент</h1>
+      <div>
+        <button id="addCommandBtn">Добавить команду</button>
+        <button id="chatBtn">Chat с AI</button>
+      </div>
+    </div>
+    <canvas id="micCanvas" width="150" height="150"></canvas>
+    <div id="output">
+      <p>Доступные команды:</p>
+      <ul id="commandList">
+        <!-- Предустановленные команды будут отображены здесь -->
+      </ul>
+    </div>
+    <div id="status">Прослушивание...</div>
+    <textarea id="userText" placeholder="Введите текст для проверки команды..."></textarea>
+  </div>
 
-if (SpeechRecognition) {
-  recognition = new SpeechRecognition();
-  recognition.lang = 'ru-RU';
-  recognition.continuous = true; // Микрофон работает всегда
-  recognition.interimResults = false;
+  <script>
+    /* ==========================================
+       1. Предустановленные команды (из Python файла)
+       ========================================== */
+    const predefinedCommands = {
+      "открыть игру": function() {
+        appendOutput("Открываю игру Minecraft... (эта команда не поддерживается в браузере)");
+      },
+      "открыть браузер": function() {
+        appendOutput("Открываю браузер Chrome... (эта команда не поддерживается в браузере)");
+      },
+      "открыть код": function() {
+        appendOutput("Открываю редактор кода VS Code... (эта команда не поддерживается в браузере)");
+      },
+      "открыть терминал": function() {
+        appendOutput("Открываю командную строку... (эта команда не поддерживается в браузере)");
+      },
+      "открыть ютуб": function() {
+        window.open("https://www.youtube.com", "_blank");
+        appendOutput("Открываю ютуб...");
+      },
+      "открыть telegram": function() {
+        appendOutput("Открываю Telegram... (эта команда не поддерживается в браузере)");
+      }
+    };
 
-  recognition.onresult = function(event) {
-    const transcript = event.results[event.results.length - 1][0].transcript.trim();
-    appendOutput("Вы сказали: " + transcript);
-  };
+    // Отобразить предустановленные команды
+    function displayPredefinedCommands() {
+      const commandList = document.getElementById("commandList");
+      for (const cmd in predefinedCommands) {
+        let li = document.createElement("li");
+        li.textContent = cmd;
+        commandList.appendChild(li);
+      }
+    }
+    displayPredefinedCommands();
 
-  recognition.onerror = function(event) {
-    console.error("Ошибка распознавания:", event.error);
-    if (event.error === 'not-allowed') {
-      appendOutput("Ошибка: доступ к микрофону запрещён.");
-      document.getElementById('status').textContent = "Ошибка микрофона";
+    /* ==========================================
+       2. Пользовательские команды
+       ========================================== */
+    let commandsList = []; // Каждая команда: {name, link, file_path}
+
+    function updateUserCommandsDisplay() {
+      const commandListElem = document.getElementById("commandList");
+      // Удаляем ранее добавленные пользовательские команды
+      const userCmds = document.querySelectorAll(".user-command");
+      userCmds.forEach(el => el.remove());
+      commandsList.forEach(cmd => {
+        let li = document.createElement("li");
+        li.classList.add("user-command");
+        li.innerHTML = `<strong>${cmd.name}</strong>`;
+        if (cmd.link) li.innerHTML += ` — Ссылка: ${cmd.link}`;
+        if (cmd.file_path) li.innerHTML += ` — Файл: ${cmd.file_path}`;
+        commandListElem.appendChild(li);
+      });
+    }
+
+    document.getElementById('addCommandBtn').addEventListener('click', function() {
+      const name = prompt("Введите название команды:");
+      if (!name) return;
+      const link = prompt("Введите ссылку (оставьте пустым, если не нужно):");
+      const file_path = prompt("Введите расположение файла (оставьте пустым, если не нужно):");
+      commandsList.push({ name, link, file_path });
+      updateUserCommandsDisplay();
+    });
+
+    /* ==========================================
+       3. Обработка голосовых и текстовых команд
+       ========================================== */
+    // Функция добавления сообщений в область вывода
+    function appendOutput(text) {
+      const output = document.getElementById('output');
+      output.innerHTML += `<p>${text}</p>`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    // Обработка команды (по голосу или тексту)
+    function handleCommand(text) {
+      text = text.trim().toLowerCase();
+      // Проверка предустановленных команд
+      if (predefinedCommands.hasOwnProperty(text)) {
+        predefinedCommands[text]();
+        return;
+      }
+      // Проверка пользовательских команд
+      let found = false;
+      for (let cmd of commandsList) {
+        if (text === cmd.name.toLowerCase()) {
+          if (cmd.link) {
+            window.open(cmd.link, '_blank');
+            appendOutput("Открываю " + cmd.name + "...");
+          } else if (cmd.file_path) {
+            appendOutput("Попытка открыть файл: " + cmd.file_path + ". Эта операция не поддерживается в браузере.");
+          } else {
+            appendOutput("Команда '" + text + "' не имеет действия.");
+          }
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        appendOutput("Команда '" + text + "' не найдена.");
+      }
+    }
+
+    /* ==========================================
+       4. Голосовое распознавание (работает 24/7)
+       ========================================== */
+    let recognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+        appendOutput("Вы сказали: " + transcript);
+        handleCommand(transcript);
+      };
+
+      recognition.onerror = function(event) {
+        if (event.error === 'not-allowed' || event.error === 'NotAllowedError') {
+          appendOutput("Доступ к микрофону запрещён. Пожалуйста, разрешите использование микрофона.");
+          document.getElementById('status').textContent = "Микрофон не разрешён";
+          document.getElementById('status').style.color = "red";
+        } else {
+          appendOutput("[Ошибка распознавания]: " + event.error);
+          document.getElementById('status').textContent = "Ошибка";
+          document.getElementById('status').style.color = "red";
+        }
+      };
+
+      recognition.onend = function() {
+        // Перезапуск распознавания через 1 секунду для обеспечения непрерывной работы
+        setTimeout(() => recognition.start(), 1000);
+      };
+
+      try {
+        recognition.start();
+        appendOutput("Микрофон активен.");
+      } catch (error) {
+        appendOutput("Ошибка при запуске микрофона: " + error.message);
+      }
+    } else {
+      appendOutput("Ваш браузер не поддерживает голосовое распознавание.");
+      document.getElementById('status').textContent = "Голосовое распознавание не поддерживается";
       document.getElementById('status').style.color = "red";
     }
-  };
 
-  recognition.onend = function() {
-    console.log("Распознавание завершилось, перезапускаем...");
-    setTimeout(() => recognition.start(), 1000); // Автоматический перезапуск
-  };
-
-  // Функция запуска микрофона один раз
-  function startMic() {
-    try {
-      recognition.start();
-      appendOutput("Микрофон активен.");
-    } catch (error) {
-      appendOutput("Ошибка при запуске микрофона: " + error.message);
+    /* ==========================================
+       5. Проверка текстового поля каждые 3 секунды
+       ========================================== */
+    function checkUserText() {
+      const textArea = document.getElementById('userText');
+      const text = textArea.value.trim();
+      if (text !== "") {
+        appendOutput("Вы ввели: " + text);
+        handleCommand(text);
+        textArea.value = ""; // очистка поля после обработки
+      }
     }
-  }
+    setInterval(checkUserText, 3000);
 
-  startMic(); // Запускаем микрофон при загрузке страницы
-} else {
-  appendOutput("Ваш браузер не поддерживает голосовое распознавание.");
-}
+    /* ==========================================
+       6. Анимация микрофона
+       ========================================== */
+    const canvas = document.getElementById('micCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    let micAnimationCounter = 0;
 
-function appendOutput(text) {
-  const output = document.getElementById('output');
-  output.innerHTML += `<p>${text}</p>`;
-  output.scrollTop = output.scrollHeight;
-}
+    function animateMic() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const radius = 30 + 10 * Math.abs(Math.sin(micAnimationCounter));
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = "red";
+      ctx.fill();
+      micAnimationCounter += 0.1;
+      requestAnimationFrame(animateMic);
+    }
+    animateMic();
+  </script>
+</body>
+</html>
