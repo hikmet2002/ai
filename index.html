@@ -79,7 +79,7 @@
     <div id="output">
       <p>Доступные команды:</p>
       <ul id="commandList">
-        <!-- Предустановленные команды будут отображены здесь -->
+        <!-- Предустановленные и пользовательские команды будут отображаться здесь -->
       </ul>
     </div>
     <div id="status">Прослушивание...</div>
@@ -88,7 +88,7 @@
 
   <script>
     /* ==========================================
-       1. Предустановленные команды (из Python файла)
+       1. Предустановленные команды
        ========================================== */
     const predefinedCommands = {
       "открыть игру": function() {
@@ -112,7 +112,6 @@
       }
     };
 
-    // Отобразить предустановленные команды
     function displayPredefinedCommands() {
       const commandList = document.getElementById("commandList");
       for (const cmd in predefinedCommands) {
@@ -126,7 +125,7 @@
     /* ==========================================
        2. Пользовательские команды
        ========================================== */
-    let commandsList = []; // Каждая команда: {name, link, file_path}
+    let commandsList = []; // каждая команда: {name, link, file_path}
 
     function updateUserCommandsDisplay() {
       const commandListElem = document.getElementById("commandList");
@@ -153,16 +152,14 @@
     });
 
     /* ==========================================
-       3. Обработка голосовых и текстовых команд
+       3. Обработка команд (голосовых и текстовых)
        ========================================== */
-    // Функция добавления сообщений в область вывода
     function appendOutput(text) {
       const output = document.getElementById('output');
       output.innerHTML += `<p>${text}</p>`;
       output.scrollTop = output.scrollHeight;
     }
 
-    // Обработка команды (по голосу или тексту)
     function handleCommand(text) {
       text = text.trim().toLowerCase();
       // Проверка предустановленных команд
@@ -192,7 +189,7 @@
     }
 
     /* ==========================================
-       4. Голосовое распознавание (работает 24/7)
+       4. Голосовое распознавание
        ========================================== */
     let recognition;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -246,7 +243,7 @@
       if (text !== "") {
         appendOutput("Вы ввели: " + text);
         handleCommand(text);
-        textArea.value = ""; // очистка поля после обработки
+        textArea.value = "";
       }
     }
     setInterval(checkUserText, 3000);
@@ -259,7 +256,6 @@
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     let micAnimationCounter = 0;
-
     function animateMic() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const radius = 30 + 10 * Math.abs(Math.sin(micAnimationCounter));
@@ -271,6 +267,18 @@
       requestAnimationFrame(animateMic);
     }
     animateMic();
+
+    /* ==========================================
+       7. Chat с AI (симулированный)
+       ========================================== */
+    document.getElementById('chatBtn').addEventListener('click', function() {
+      const userText = prompt("Введите сообщение для чата с AI:");
+      if (userText) {
+        // Симуляция работы AI: просто возвращаем "эхо" введённого сообщения
+        const aiResponse = "Эхо: " + userText;
+        appendOutput("Ответ AI: " + aiResponse);
+      }
+    });
   </script>
 </body>
 </html>
