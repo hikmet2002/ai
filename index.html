@@ -79,7 +79,7 @@
     <div id="output">
       <p>Доступные команды:</p>
       <ul id="commandList">
-        <!-- Предустановленные и пользовательские команды будут отображаться здесь -->
+        <!-- Предустановленные и пользовательские команды -->
       </ul>
     </div>
     <div id="status">Прослушивание...</div>
@@ -160,6 +160,13 @@
       output.scrollTop = output.scrollHeight;
     }
 
+    // Функция-фолбэк для нераспознанных команд: имитирует вызов g4f[all]
+    function g4fAll(message) {
+      // Здесь можно реализовать вызов реального AI-сервиса
+      const response = "Ответ g4f[all]: " + message;
+      appendOutput(response);
+    }
+
     function handleCommand(text) {
       text = text.trim().toLowerCase();
       // Проверка предустановленных команд
@@ -183,8 +190,9 @@
           break;
         }
       }
+      // Если ни одна команда не найдена – вызываем g4f[all]
       if (!found) {
-        appendOutput("Команда '" + text + "' не найдена.");
+        g4fAll(text);
       }
     }
 
@@ -274,7 +282,7 @@
     document.getElementById('chatBtn').addEventListener('click', function() {
       const userText = prompt("Введите сообщение для чата с AI:");
       if (userText) {
-        // Симуляция работы AI: просто возвращаем "эхо" введённого сообщения
+        // Симуляция работы AI: можно заменить вызовом реального API
         const aiResponse = "Эхо: " + userText;
         appendOutput("Ответ AI: " + aiResponse);
       }
