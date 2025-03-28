@@ -1,11 +1,3 @@
-from flask import Flask, request, jsonify, render_template_string
-import random
-import g4f
-
-app = Flask(__name__)
-
-# HTML-интерфейс (можно разместить на GitHub Pages, если требуется статический контент)
-HTML_PAGE = """
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -50,6 +42,7 @@ HTML_PAGE = """
       margin: 20px auto;
       background: #fff;
       border: 1px solid #ccc;
+      cursor: pointer;
     }
     #output {
       border: 1px solid #ccc;
@@ -87,7 +80,7 @@ HTML_PAGE = """
     <div id="output">
       <p>Доступные команды:</p>
       <ul id="commandList">
-        <!-- Предустановленные и пользовательские команды будут отображаться здесь -->
+        <!-- Здесь будут отображаться предустановленные и добавленные пользователем команды -->
       </ul>
     </div>
     <div id="status">Прослушивание...</div>
@@ -99,12 +92,12 @@ HTML_PAGE = """
        1. Отображение предустановленных команд
        ========================================== */
     const predefinedCommands = {
-      "открыть игру": "Открываю игру Minecraft... (эта команда не поддерживается в браузере)",
-      "открыть браузер": "Открываю браузер Chrome... (эта команда не поддерживается в браузере)",
-      "открыть код": "Открываю редактор кода VS Code... (эта команда не поддерживается в браузере)",
-      "открыть терминал": "Открываю командную строку... (эта команда не поддерживается в браузере)",
+      "открыть игру": "Открываю игру Minecraft... (данная команда не поддерживается в браузере)",
+      "открыть браузер": "Открываю браузер Chrome... (данная команда не поддерживается в браузере)",
+      "открыть код": "Открываю редактор кода VS Code... (данная команда не поддерживается в браузере)",
+      "открыть терминал": "Открываю командную строку... (данная команда не поддерживается в браузере)",
       "открыть ютуб": "Открываю ютуб...",
-      "открыть telegram": "Открываю Telegram... (эта команда не поддерживается в браузере)"
+      "открыть telegram": "Открываю Telegram... (данная команда не поддерживается в браузере)"
     };
 
     function displayPredefinedCommands() {
@@ -120,12 +113,14 @@ HTML_PAGE = """
     /* ==========================================
        2. Пользовательские команды
        ========================================== */
-    let commandsList = []; // каждая команда: {name, link, file_path}
+    let commandsList = []; // Каждая команда: {name, link, file_path}
 
     function updateUserCommandsDisplay() {
       const commandListElem = document.getElementById("commandList");
+      // Удаляем старые пользовательские команды
       const userCmds = document.querySelectorAll(".user-command");
       userCmds.forEach(el => el.remove());
+      // Добавляем новые
       commandsList.forEach(cmd => {
         let li = document.createElement("li");
         li.classList.add("user-command");
@@ -146,7 +141,7 @@ HTML_PAGE = """
     });
 
     /* ==========================================
-       3. Функция для вывода сообщений
+       3. Функция для вывода сообщений в чат
        ========================================== */
     function appendOutput(text) {
       const output = document.getElementById('output');
@@ -155,36 +150,32 @@ HTML_PAGE = """
     }
 
     /* ==========================================
-       4. Отправка команды на сервер
+       4. Отправка запроса на сервер
        ========================================== */
-    function sendCommand(text) {
-      fetch("/process", {
+    function sendRequest(url, data) {
+      return fetch(url, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ "text": text })
+        body: JSON.stringify(data)
       })
       .then(response => response.json())
-      .then(data => {
-         appendOutput(data.response);
-         if (data.url) {
-            window.open(data.url, "_blank");
-         }
-      })
-      .catch(err => {
-         appendOutput("Ошибка: " + err);
-      });
+      .catch(err => ({ response: "Ошибка: " + err }));
     }
 
     function handleCommand(text) {
       text = text.trim().toLowerCase();
-      // Передаём текст на сервер для обработки
-      sendCommand(text);
+      // Отправляем каждое сообщение как отдельный запрос к серверу
+      sendRequest("/process", { text: text }).then(data => {
+        appendOutput(data.response);
+        if (data.url) window.open(data.url, "_blank");
+      });
     }
 
     /* ==========================================
-       5. Голосовое распознавание
+       5. Голосовое распознавание и переключение записи
        ========================================== */
     let recognition;
+    let recognitionActive = true;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
@@ -208,7 +199,7 @@ HTML_PAGE = """
         }
       };
       recognition.onend = function() {
-        setTimeout(() => recognition.start(), 1000);
+        if (recognitionActive) setTimeout(() => recognition.start(), 1000);
       };
       try {
         recognition.start();
@@ -221,6 +212,26 @@ HTML_PAGE = """
       document.getElementById('status').textContent = "Голосовое распознавание не поддерживается";
       document.getElementById('status').style.color = "red";
     }
+
+    // Переключение записи по клику на красный круг (canvas)
+    const canvas = document.getElementById('micCanvas');
+    canvas.addEventListener("click", function() {
+      if (recognitionActive) {
+        recognition.stop();
+        recognitionActive = false;
+        document.getElementById("status").textContent = "Прослушивание остановлено";
+        document.getElementById("status").style.color = "orange";
+      } else {
+        try {
+          recognition.start();
+          recognitionActive = true;
+          document.getElementById("status").textContent = "Прослушивание...";
+          document.getElementById("status").style.color = "green";
+        } catch(e) {
+          appendOutput("Ошибка при запуске микрофона: " + e.message);
+        }
+      }
+    });
 
     /* ==========================================
        6. Проверка текстового поля каждые 3 секунды
@@ -239,7 +250,6 @@ HTML_PAGE = """
     /* ==========================================
        7. Анимация микрофона
        ========================================== */
-    const canvas = document.getElementById('micCanvas');
     const ctx = canvas.getContext('2d');
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
@@ -257,85 +267,17 @@ HTML_PAGE = """
     animateMic();
 
     /* ==========================================
-       8. Chat с AI
+       8. Chat с AI (текстовый диалог)
        ========================================== */
     document.getElementById('chatBtn').addEventListener('click', function() {
       const userText = prompt("Введите сообщение для чата с AI:");
       if (userText) {
-        fetch("/chat", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ "message": userText })
-        })
-        .then(response => response.json())
-        .then(data => {
-           appendOutput("Ответ AI: " + data.response);
-        })
-        .catch(err => {
-           appendOutput("Ошибка: " + err);
+        sendRequest("/chat", { message: userText }).then(data => {
+          appendOutput("Ответ AI: " + data.response);
+          if (data.url) window.open(data.url, "_blank");
         });
       }
     });
   </script>
 </body>
 </html>
-"""
-
-# =================================================================
-# Серверная логика
-# =================================================================
-
-# Предустановленные команды (серверная часть)
-predefined_commands = {
-    "открыть игру": {"response": "Открываю игру Minecraft... (эта команда не поддерживается в браузере)"},
-    "открыть браузер": {"response": "Открываю браузер Chrome... (эта команда не поддерживается в браузере)"},
-    "открыть код": {"response": "Открываю редактор кода VS Code... (эта команда не поддерживается в браузере)"},
-    "открыть терминал": {"response": "Открываю командную строку... (эта команда не поддерживается в браузере)"},
-    "открыть ютуб": {"response": "Открываю ютуб...", "url": "https://www.youtube.com"},
-    "открыть telegram": {"response": "Открываю Telegram... (эта команда не поддерживается в браузере)"}
-}
-
-# Функция, использующая g4f для генерации ответа
-def g4f_all(message):
-    # Здесь можно выбрать одного из провайдеров, установленных через pip install -U g4f[all]
-    providers = [g4f.Provider.Aichat, g4f.Provider.DeepAi, g4f.Provider.You]
-    provider = random.choice(providers)
-    try:
-        response = g4f.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            prompt=message,
-            provider=provider
-        )
-        return response
-    except Exception as e:
-        return "Ошибка вызова g4f: " + str(e)
-
-# Главная страница
-@app.route("/")
-def index():
-    return render_template_string(HTML_PAGE)
-
-# Endpoint для обработки команд
-@app.route("/process", methods=["POST"])
-def process():
-    data = request.get_json()
-    text = data.get("text", "").strip().lower()
-    # Если команда предустановленная, вернуть соответствующий ответ
-    if text in predefined_commands:
-        result = predefined_commands[text]
-        return jsonify(result)
-    # Если команда не распознана – вызываем g4f[all]
-    response = g4f_all(text)
-    return jsonify({"response": "Ответ g4f[all]: " + response})
-
-# Endpoint для чата с AI
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json()
-    message = data.get("message", "")
-    response = g4f_all(message)
-    return jsonify({"response": response})
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
